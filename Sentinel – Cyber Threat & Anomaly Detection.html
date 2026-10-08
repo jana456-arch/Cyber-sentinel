@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sentinel – Cyber Threat & Anomaly Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#14202b;--mut:#5d6b78;--line:#d5dce3;--ok:#1b7f4b;--warn:#b86e00;--bad:#c4271f;--acc:#0b5cab;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1419;--panel:#161e26;--ink:#e3eaf0;--mut:#8b9aa8;--line:#27323d;--ok:#3fcf8e;--warn:#f0a63a;--bad:#ff6259;--acc:#5aa9f0}}
+:root[data-theme="dark"]{--bg:#0e1419;--panel:#161e26;--ink:#e3eaf0;--mut:#8b9aa8;--line:#27323d;--ok:#3fcf8e;--warn:#f0a63a;--bad:#ff6259;--acc:#5aa9f0}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.mono,code,textarea,td.m{font-family:"IBM Plex Mono",ui-monospace,monospace}
+header{padding:18px 20px 6px;display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+h1{margin:0;font-size:22px}h2{margin:0 0 8px;font-size:15px}
+.sub{color:var(--mut);max-width:70ch;margin:2px 20px 0}
+main{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px;padding:14px 20px 30px}
+@media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+.p{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:14px}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 10px;border-radius:4px;cursor:pointer}
+button:hover{border-color:var(--acc)}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.go{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+textarea{width:100%;height:150px;font-size:11px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px}
+.gate{border-left:6px solid var(--ok);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.gate.bad{border-left-color:var(--bad)}
+.verdict{font:500 20px "IBM Plex Mono",monospace}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.k{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px}.k b{font-size:22px;display:block}.k span{color:var(--mut);font-size:12px}
+@media(max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}th{color:var(--mut);font-weight:600}
+tr.row{cursor:pointer}tr.row:hover,tr.sel{background:var(--bg)}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid currentColor}
+.Normal{color:var(--ok)}.Suspicious{color:var(--warn)}.Malicious{color:var(--bad)}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;min-width:60px}.bar i{display:block;height:100%}
+.dist{display:flex;gap:4px;align-items:flex-end;height:70px}.dist div{flex:1;background:var(--acc);min-height:2px;border-radius:2px 2px 0 0}
+.mut{color:var(--mut)}ul{margin:4px 0;padding-left:18px}
+input[type=range]{width:100%}
+.skip{max-height:140px;overflow:auto;font-size:12px}
+</style></head><body>
+<header><h1>Sentinel – real-time cyber threat &amp; anomaly detection</h1>
+<button id="th" aria-label="Toggle theme">Theme</button></header>
+<p class="sub">Paste or generate telemetry. Sentinel builds per-source window features, scores anomaly + threat class, assigns a 0–100 risk with evidence, logs it to the audit store, and applies your max-risk gate.</p>
+<main>
+<section>
+ <div class="p"><h2>1. Telemetry input</h2>
+  <div class="btns" id="sc"></div>
+  <textarea id="inp" spellcheck="false" aria-label="Telemetry JSON lines"></textarea>
+  <div class="btns" style="margin:8px 0 0"><button class="go" id="run">Analyze</button><label class="mut">or file <input type="file" id="fl" accept=".json,.jsonl,.txt,.log"></label></div>
+ </div>
+ <div class="p"><h2>2. Policy guardrail</h2>
+  <label for="mx">--max-risk <b id="mxv" class="mono">70</b></label>
+  <input type="range" id="mx" min="0" max="100" value="70">
+  <p class="mut" style="margin:6px 0 0">Exit 1 if any alert risk exceeds the limit, else exit 0.</p></div>
+ <div class="p"><h2>Skipped / filtered records</h2><div class="skip mono" id="skip"><span class="mut">Nothing yet.</span></div></div>
+</section>
+<section>
+ <div class="p gate" id="gate"><div><div class="mut">Policy verdict</div><div class="verdict" id="vd">–</div></div><div id="vt" class="mut"></div></div>
+ <div class="kpis" id="kp"></div>
+ <div class="p"><h2>Alerts (click a row for evidence)</h2><div class="tw"><table><thead><tr><th>ID</th><th>Source</th><th>Class</th><th>Threat</th><th>Risk</th><th>Status</th></tr></thead><tbody id="tb"><tr><td colspan="6" class="mut">Run an analysis to see alerts.</td></tr></tbody></table></div></div>
+ <div class="p" id="dt"><h2>Evidence &amp; traceability</h2><span class="mut">Select an alert.</span></div>
+ <div class="p"><h2>Risk distribution (all sources)</h2><div class="dist" id="ds"></div><div class="mut mono" style="display:flex;justify-content:space-between"><span>0</span><span>30</span><span>70</span><span>100</span></div></div>
+ <div class="p"><h2>Audit log</h2><span class="mut">Persisted in browser storage (SQLite equivalent here). Columns: alert_id, timestamp, source_ip, dest_ip, classification, risk_score, evidence_features, status.</span>
+  <div class="btns" style="margin-top:8px"><button id="ex">Export audit JSON</button><button id="cl">Clear audit</button></div><div class="mono mut" id="au" style="font-size:12px"></div></div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NOISE=['dhcp','arp','multicast','mdns'],KNOWN=['flow','auth','audit'],SENS=[22,445,3389,5985];
+const BASE={n:[8,5],d:[2,1.5],p:[2,1.5],f:[.5,1],b:[2e4,1.5e4]};
+const MODEL='sentinel-v1.0 (z-anomaly + class-prob + evidence)';
+let alerts=[],audit=[],sel=null,seq=0;
+try{audit=JSON.parse(localStorage.getItem('audit')||'[]')}catch(e){}
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const T0=Date.parse('2026-10-08T10:00:00Z');
+function gen(k){const r=rng(k.length*7+3),o=[];let i=0;
+ const rec=(s,d,dp,b,t,x={})=>o.push(JSON.stringify(Object.assign({timestamp:new Date(T0+t*1000).toISOString(),source_ip:s,dest_ip:d,dest_port:dp,protocol:'tcp',bytes:b,packets:Math.ceil(b/900),event_type:'flow'},x)));
+ const benign=()=>{for(let h=10;h<16;h++)for(let j=0;j<5;j++)rec('10.0.0.'+h,'10.0.1.'+(1+(r()*2|0)),[443,80,53][r()*3|0],500+(r()*4000|0),i++*1.3)};
+ if(k==='benign'||k==='mixed'||k==='noisy')benign();
+ if(k==='scan'||k==='mixed')for(let p=1;p<=45;p++)rec('10.0.0.66','10.0.1.5',p,60,p*.4);
+ if(k==='brute'||k==='mixed')for(let n=0;n<42;n++)rec('10.0.0.77','10.0.1.10',22,200,n*2,{event_type:'auth',auth_status:'failure'});
+ if(k==='exfil'||k==='mixed')for(let n=0;n<12;n++)rec('10.0.0.88','203.0.113.'+(9+n%6),443,45e6+(r()*2e7|0),n*5);
+ if(k==='lateral'||k==='mixed')for(let n=0;n<9;n++)rec('10.0.0.99','10.0.2.'+(10+n),SENS[n%4],900,n*3);
+ if(k==='noisy'){['dhcp','arp','multicast','mdns'].forEach((e,n)=>{for(let j=0;j<6;j++)rec('10.0.0.5','255.255.255.255',67,300,j+n,{event_type:e})});
+  o.push('{"timestamp":"2026-10-08T10:00:01Z","source_ip":"10.0.0.9"','not json at all','{"timestamp":"bad-time","source_ip":"10.0.0.9","dest_ip":"10.0.1.1"}','{"timestamp":"2026-10-08T10:00:02Z","dest_ip":"10.0.1.1"}','{"timestamp":"2026-10-08T10:00:03Z","source_ip":"10.0.0.9","dest_ip":"10.0.1.1","bytes":"abc"}','{"timestamp":"2026-10-08T10:00:04Z","source_ip":"10.0.0.9","dest_ip":"10.0.1.1","event_type":"weird"}')}
+ return o.join('\n')}
+const SC=[['benign','Benign'],['scan','Port scan'],['brute','Brute force'],['exfil','Exfiltration'],['lateral','Lateral move'],['noisy','Noise + malformed'],['mixed','Mixed attack']];
+SC.forEach(([k,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{$('inp').value=gen(k);analyze()};$('sc').appendChild(b)});
+function parse(txt){const ev=[],sk=[];txt.split('\n').forEach((ln,i)=>{ln=ln.trim();if(!ln)return;const L=i+1;let r;
+ try{r=JSON.parse(ln)}catch(e){sk.push(`line ${L}: malformed JSON`);return}
+ if(!r||typeof r!=='object'){sk.push(`line ${L}: not an object`);return}
+ const et=String(r.event_type||'flow').toLowerCase();
+ if(NOISE.includes(et)){sk.push(`line ${L}: filtered background (${et})`);return}
+ if(!KNOWN.includes(et)){sk.push(`line ${L}: unknown event_type "${String(et).slice(0,20)}"`);return}
+ const t=Date.parse(r.timestamp);if(isNaN(t)){sk.push(`line ${L}: invalid timestamp`);return}
+ if(!r.source_ip||!r.dest_ip){sk.push(`line ${L}: missing source_ip/dest_ip`);return}
+ let b=Number(r.bytes??0);if(!isFinite(b)||b<0){sk.push(`line ${L}: non-numeric bytes`);return}
+ ev.push({line:L,t,src:String(r.source_ip).trim(),dst:String(r.dest_ip).trim(),dp:Number(r.dest_port)||0,b,et,fail:String(r.auth_status||'').toLowerCase()==='failure'})});
+ return{ev,sk}}
+const internal=ip=>/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+function score(s,ev){
+ const f={events:ev.length,dests:new Set(ev.map(e=>e.dst)).size,ports:new Set(ev.map(e=>e.dp).filter(Boolean)).size,fails:ev.filter(e=>e.fail).length,bytes:ev.reduce((a,e)=>a+e.b,0)};
+ const peers=new Set(ev.filter(e=>internal(e.dst)&&SENS.includes(e.dp)).map(e=>e.dst));f.peers=peers.size;
+ const z={events:(f.events-BASE.n[0])/BASE.n[1],dests:(f.dests-BASE.d[0])/BASE.d[1],ports:(f.ports-BASE.p[0])/BASE.p[1],fails:(f.fails-BASE.f[0])/BASE.f[1],bytes:(f.bytes-BASE.b[0])/BASE.b[1]};
+ const mz=Math.max(0,...Object.values(z));const anom=1-Math.exp(-mz/5);
+ const sc={Normal:1,'Port Scan':f.ports/20,'Brute Force':f.fails/15,'Lateral Movement':f.peers/6,'Data Exfiltration':f.bytes/3e7};
+ const sq=Object.values(sc).map(v=>v*v),sum=sq.reduce((a,b)=>a+b,0),pr={};Object.keys(sc).forEach((k,i)=>pr[k]=sq[i]/sum);
+ const top=Object.keys(pr).reduce((a,b)=>pr[a]>=pr[b]?a:b);
+ const atk=Math.max(sc['Port Scan'],sc['Brute Force'],sc['Lateral Movement'],sc['Data Exfiltration']),evd=Math.min(1,atk/2);
+ const risk=Math.round(Math.max(0,Math.min(100,100*(.35*anom+.35*(1-pr.Normal)+.30*evd))));
+ const cls=risk>70?'Malicious':risk>30?'Suspicious':'Normal';
+ const evid=[];const add=(c,t,zz)=>c&&evid.push([zz,t]);
+ add(f.ports>=8,`unique destination ports = ${f.ports} in window`,z.ports);add(f.fails>=5,`failed authentication count = ${f.fails}`,z.fails);
+ add(f.bytes>=5e6,`outbound bytes = ${(f.bytes/1e6).toFixed(1)} MB`,z.bytes);add(f.peers>=4,`new internal peers on sensitive ports (22/445/3389/5985) = ${f.peers}`,f.peers*2);
+ add(f.dests>=6,`unique destinations = ${f.dests}`,z.dests);add(f.events>=25,`events from source = ${f.events}`,z.events);
+ evid.sort((a,b)=>b[0]-a[0]);
+ return{f,z,anom,pr,top:risk>30?top:'Normal',risk,cls,evidence:evid.map(e=>e[1])}}
+function analyze(){
+ const P=parse($('inp').value),g={};P.ev.forEach(e=>(g[e.src]=g[e.src]||[]).push(e));
+ alerts=[];seq=0;
+ Object.keys(g).sort().forEach(s=>{const ev=g[s],r=score(s,ev);
+  const dst=[...new Set(ev.map(e=>e.dst))].slice(0,3).join(', ');
+  alerts.push(Object.assign({id:'A'+String(++seq).padStart(3,'0'),src:s,dst,ts:new Date(Math.min(...ev.map(e=>e.t))).toISOString(),lines:ev.map(e=>e.line),status:'new'},r))});
+ alerts.sort((a,b)=>b.risk-a.risk);
+ const sig=alerts.filter(a=>a.risk>30);
+ sig.forEach(a=>{audit.push({alert_id:a.id+'-'+Date.now().toString(36),timestamp:a.ts,source_ip:a.src,dest_ip:a.dst,classification:a.cls+' / '+a.top,risk_score:a.risk,evidence_features:a.evidence,model:MODEL,status:a.status})});
+ audit=audit.slice(-200);try{localStorage.setItem('audit',JSON.stringify(audit))}catch(e){}
+ $('skip').innerHTML=P.sk.length?P.sk.map(x=>'<div>'+esc(x)+'</div>').join(''):'<span class="mut">No records skipped.</span>';
+ sel=sig[0]?.id||null;render(P)}
+function render(P){
+ const mx=+$('mx').value,max=alerts.length?Math.max(...alerts.map(a=>a.risk)):0,br=alerts.filter(a=>a.risk>mx);
+ $('gate').classList.toggle('bad',br.length>0);
+ $('vd').textContent=br.length?'EXIT 1 · BLOCK':'EXIT 0 · ALLOW';$('vd').style.color=br.length?'var(--bad)':'var(--ok)';
+ $('vt').textContent=alerts.length?`Highest risk ${max} vs limit ${mx}. ${br.length} source(s) in breach.`:'No valid telemetry analyzed yet.';
+ const c=k=>alerts.filter(a=>a.cls===k).length;
+ $('kp').innerHTML=[['Valid sources',alerts.length],['Malicious',c('Malicious')],['Suspicious',c('Suspicious')],['Skipped records',P?P.sk.length:$('skip').querySelectorAll('div').length]].map(([l,v])=>`<div class="k"><b>${v}</b><span>${l}</span></div>`).join('');
+ $('tb').innerHTML=alerts.length?alerts.map(a=>`<tr class="row ${a.id===sel?'sel':''}" data-id="${a.id}"><td class="m">${a.id}</td><td class="m">${esc(a.src)}</td><td><span class="tag ${a.cls}">${a.cls}</span></td><td>${a.top}</td><td><b>${a.risk}</b><div class="bar"><i style="width:${a.risk}%;background:var(--${a.cls==='Normal'?'ok':a.cls==='Suspicious'?'warn':'bad'})"></i></div></td><td>${a.status}</td></tr>`).join(''):'<tr><td colspan="6" class="mut">No valid records. Check the skipped log.</td></tr>';
+ document.querySelectorAll('tr.row').forEach(r=>r.onclick=()=>{sel=r.dataset.id;render(P)});
+ const a=alerts.find(x=>x.id===sel);
+ $('dt').innerHTML='<h2>Evidence &amp; traceability</h2>'+(a?`<div><b class="mono">${a.id}</b> · ${esc(a.src)} → ${esc(a.dst)} · <span class="tag ${a.cls}">${a.cls}</span> risk <b>${a.risk}</b>/100 (${a.top})</div>
+ <p style="margin:8px 0 2px"><b>Why (strongest first)</b></p><ul>${a.evidence.length?a.evidence.map(e=>'<li>'+esc(e)+'</li>').join(''):'<li class="mut">No feature crossed an evidence threshold; behavior is within baseline.</li>'}</ul>
+ <p style="margin:8px 0 2px"><b>Model outputs</b></p><div class="mono" style="font-size:12px">anomaly signal ${a.anom.toFixed(2)} · risk = 100×(0.35×anomaly + 0.35×(1−P(Normal)) + 0.30×evidence)<br>${Object.entries(a.pr).map(([k,v])=>k+' '+(v*100).toFixed(0)+'%').join(' · ')}</div>
+ <p style="margin:8px 0 2px"><b>Traceability</b></p><div class="mono mut" style="font-size:12px">first seen ${a.ts} · input lines ${esc(a.lines.slice(0,12).join(', '))}${a.lines.length>12?' …':''} · model ${MODEL}</div>
+ <div class="btns" style="margin-top:8px"><button data-s="reviewed">Mark reviewed</button><button data-s="resolved">Mark resolved</button></div>`:'<span class="mut">Select an alert.</span>');
+ document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{a.status=b.dataset.s;const m=audit.filter(x=>x.source_ip===a.src).pop();if(m)m.status=a.status;try{localStorage.setItem('audit',JSON.stringify(audit))}catch(e){}render(P)});
+ const bins=Array(10).fill(0);alerts.forEach(x=>bins[Math.min(9,x.risk/10|0)]++);const bm=Math.max(1,...bins);
+ $('ds').innerHTML=bins.map((n,i)=>`<div title="${i*10}-${i*10+9}: ${n}" style="height:${n/bm*100}%;background:var(--${i<3?'ok':i<7?'warn':'bad'})"></div>`).join('');
+ $('au').innerHTML=`<div style="margin-top:6px">${audit.length} audit record(s) stored.</div>`+audit.slice(-4).reverse().map(x=>`<div>${esc(x.alert_id)} · ${esc(x.source_ip)} · ${esc(x.classification)} · ${x.risk_score}</div>`).join('')}
+$('mx').oninput=()=>{$('mxv').textContent=$('mx').value;render(null)};
+$('run').onclick=analyze;
+$('ex').onclick=()=>{$('inp').value=JSON.stringify(audit,null,1)};
+$('cl').onclick=()=>{audit=[];try{localStorage.removeItem('audit')}catch(e){}render(null)};
+$('fl').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('inp').value=String(r.result).slice(0,2e6);analyze()};r.readAsText(f)};
+$('th').onclick=()=>{const d=document.documentElement,cur=d.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');d.dataset.theme=cur==='dark'?'light':'dark'};
+$('inp').value=gen('mixed');analyze();
+</script></body></html>
